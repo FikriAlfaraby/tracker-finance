@@ -68,10 +68,11 @@ export interface Config {
   blocks: {};
   collections: {
     users: User;
-    media: Media;
+    'financial-data': FinancialDatum;
     transactions: Transaction;
-    'initial-evaluations': InitialEvaluation;
     'financial-scores': FinancialScore;
+    'financial-goals': FinancialGoal;
+    'sub-goals': SubGoal;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -79,10 +80,11 @@ export interface Config {
   collectionsJoins: {};
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
-    media: MediaSelect<false> | MediaSelect<true>;
+    'financial-data': FinancialDataSelect<false> | FinancialDataSelect<true>;
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
-    'initial-evaluations': InitialEvaluationsSelect<false> | InitialEvaluationsSelect<true>;
     'financial-scores': FinancialScoresSelect<false> | FinancialScoresSelect<true>;
+    'financial-goals': FinancialGoalsSelect<false> | FinancialGoalsSelect<true>;
+    'sub-goals': SubGoalsSelect<false> | SubGoalsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -140,22 +142,37 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
+ * via the `definition` "financial-data".
  */
-export interface Media {
+export interface FinancialDatum {
   id: string;
-  alt: string;
-  updatedAt: string;
+  user?: (string | null) | User;
+  /**
+   * Pemasukan bulanan
+   */
+  monthlyIncome: number;
+  /**
+   * Pengeluaran bulanan
+   */
+  monthlyExpenses: number;
+  /**
+   * Total aset yang dimiliki
+   */
+  totalAssets: number;
+  /**
+   * Total utang yang dimiliki
+   */
+  totalLiabilities: number;
+  /**
+   * Kekayaan bersih (total aset - total utang)
+   */
+  netWorth?: number | null;
+  /**
+   * Skor keuangan yang dihitung otomatis
+   */
+  score?: number | null;
   createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
+  updatedAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -182,41 +199,96 @@ export interface Transaction {
   amount: number;
   date: string;
   /**
-   * Deskripsi opsional untuk transaksi
+   * Deskripsi transaksi
    */
   description?: string | null;
+  /**
+   * Tujuan keuangan terkait (opsional)
+   */
+  relatedGoal?: (string | null) | FinancialGoal;
+  /**
+   * Kantong/sub-tujuan terkait (opsional)
+   */
+  relatedSubGoal?: (string | null) | SubGoal;
   updatedAt: string;
   createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "initial-evaluations".
+ * via the `definition` "financial-goals".
  */
-export interface InitialEvaluation {
+export interface FinancialGoal {
   id: string;
   user?: (string | null) | User;
   /**
-   * Pemasukan bulanan dalam Rupiah
+   * Nama tujuan keuangan
    */
-  income: number;
+  name: string;
   /**
-   * Pengeluaran bulanan dalam Rupiah
+   * Deskripsi tujuan keuangan
    */
-  expenses: number;
+  description?: string | null;
   /**
-   * Total aset yang dimiliki dalam Rupiah
+   * Jumlah target yang ingin dicapai
    */
-  assets: number;
+  targetAmount: number;
   /**
-   * Total utang yang dimiliki dalam Rupiah
+   * Tanggal target pencapaian (opsional)
    */
-  liabilities: number;
+  targetDate?: string | null;
+  priority: 'low' | 'medium' | 'high';
   /**
-   * Skor keuangan yang dihitung otomatis
+   * Total alokasi saat ini dari semua kantong
    */
-  score?: number | null;
-  updatedAt: string;
+  currentTotalAllocation?: number | null;
+  /**
+   * Persentase kemajuan (0-100)
+   */
+  progress?: number | null;
+  /**
+   * Tabungan bulanan yang diperlukan untuk mencapai tujuan
+   */
+  requiredMonthlySavings?: number | null;
+  /**
+   * Perkiraan tanggal pencapaian berdasarkan alokasi saat ini
+   */
+  estimatedCompletionDate?: string | null;
   createdAt: string;
+  updatedAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sub-goals".
+ */
+export interface SubGoal {
+  id: string;
+  user?: (string | null) | User;
+  /**
+   * Tujuan keuangan utama
+   */
+  goal: string | FinancialGoal;
+  /**
+   * Nama kantong/sub-tujuan
+   */
+  name: string;
+  /**
+   * Deskripsi kantong/sub-tujuan
+   */
+  description?: string | null;
+  /**
+   * Jumlah yang dialokasikan untuk kantong ini
+   */
+  allocatedAmount?: number | null;
+  /**
+   * Jenis aset untuk kantong ini
+   */
+  assetType: 'savings' | 'stocks' | 'mutual_funds' | 'gold' | 'property' | 'crypto' | 'other';
+  /**
+   * Catatan tambahan
+   */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -227,6 +299,22 @@ export interface FinancialScore {
   user: string | User;
   score: number;
   evaluatedAt: string;
+  /**
+   * Rasio utang terhadap pendapatan (%)
+   */
+  debtToIncomeRatio?: number | null;
+  /**
+   * Rasio tabungan terhadap pendapatan (%)
+   */
+  savingsToIncomeRatio?: number | null;
+  /**
+   * Rasio pengeluaran terhadap pendapatan (%)
+   */
+  expensesToIncomeRatio?: number | null;
+  /**
+   * Rasio kekayaan bersih terhadap pendapatan tahunan
+   */
+  netWorthRatio?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -242,20 +330,24 @@ export interface PayloadLockedDocument {
         value: string | User;
       } | null)
     | ({
-        relationTo: 'media';
-        value: string | Media;
+        relationTo: 'financial-data';
+        value: string | FinancialDatum;
       } | null)
     | ({
         relationTo: 'transactions';
         value: string | Transaction;
       } | null)
     | ({
-        relationTo: 'initial-evaluations';
-        value: string | InitialEvaluation;
-      } | null)
-    | ({
         relationTo: 'financial-scores';
         value: string | FinancialScore;
+      } | null)
+    | ({
+        relationTo: 'financial-goals';
+        value: string | FinancialGoal;
+      } | null)
+    | ({
+        relationTo: 'sub-goals';
+        value: string | SubGoal;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -318,21 +410,18 @@ export interface UsersSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media_select".
+ * via the `definition` "financial-data_select".
  */
-export interface MediaSelect<T extends boolean = true> {
-  alt?: T;
-  updatedAt?: T;
+export interface FinancialDataSelect<T extends boolean = true> {
+  user?: T;
+  monthlyIncome?: T;
+  monthlyExpenses?: T;
+  totalAssets?: T;
+  totalLiabilities?: T;
+  netWorth?: T;
+  score?: T;
   createdAt?: T;
-  url?: T;
-  thumbnailURL?: T;
-  filename?: T;
-  mimeType?: T;
-  filesize?: T;
-  width?: T;
-  height?: T;
-  focalX?: T;
-  focalY?: T;
+  updatedAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -345,20 +434,8 @@ export interface TransactionsSelect<T extends boolean = true> {
   amount?: T;
   date?: T;
   description?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "initial-evaluations_select".
- */
-export interface InitialEvaluationsSelect<T extends boolean = true> {
-  user?: T;
-  income?: T;
-  expenses?: T;
-  assets?: T;
-  liabilities?: T;
-  score?: T;
+  relatedGoal?: T;
+  relatedSubGoal?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -370,8 +447,45 @@ export interface FinancialScoresSelect<T extends boolean = true> {
   user?: T;
   score?: T;
   evaluatedAt?: T;
+  debtToIncomeRatio?: T;
+  savingsToIncomeRatio?: T;
+  expensesToIncomeRatio?: T;
+  netWorthRatio?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "financial-goals_select".
+ */
+export interface FinancialGoalsSelect<T extends boolean = true> {
+  user?: T;
+  name?: T;
+  description?: T;
+  targetAmount?: T;
+  targetDate?: T;
+  priority?: T;
+  currentTotalAllocation?: T;
+  progress?: T;
+  requiredMonthlySavings?: T;
+  estimatedCompletionDate?: T;
+  createdAt?: T;
+  updatedAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sub-goals_select".
+ */
+export interface SubGoalsSelect<T extends boolean = true> {
+  user?: T;
+  goal?: T;
+  name?: T;
+  description?: T;
+  allocatedAmount?: T;
+  assetType?: T;
+  notes?: T;
+  createdAt?: T;
+  updatedAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

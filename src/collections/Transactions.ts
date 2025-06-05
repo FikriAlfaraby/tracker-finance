@@ -1,10 +1,10 @@
 import type { CollectionConfig } from 'payload'
-import { recalculateFinancialScore } from '../utils/scoreCalculator'
+import { recalculateFinancialData } from '../utils/scoreCalculator'
 
 export const Transactions: CollectionConfig = {
   slug: 'transactions',
   admin: {
-    useAsTitle: 'category',
+    useAsTitle: 'description',
     defaultColumns: ['user', 'type', 'category', 'amount', 'date'],
   },
   access: {
@@ -68,7 +68,7 @@ export const Transactions: CollectionConfig = {
         { label: 'Freelance', value: 'freelance' },
         { label: 'Investasi', value: 'investment' },
         { label: 'Bonus', value: 'bonus' },
-        { label: 'Lainnya', value: 'other-income' },
+        { label: 'Lainnya (Pemasukan)', value: 'other-income' },
         // Expense categories
         { label: 'Makanan', value: 'food' },
         { label: 'Transportasi', value: 'transportation' },
@@ -77,7 +77,7 @@ export const Transactions: CollectionConfig = {
         { label: 'Hiburan', value: 'entertainment' },
         { label: 'Kesehatan', value: 'health' },
         { label: 'Pendidikan', value: 'education' },
-        { label: 'Lainnya', value: 'other-expense' },
+        { label: 'Lainnya (Pengeluaran)', value: 'other-expense' },
       ],
       required: true,
     },
@@ -95,9 +95,25 @@ export const Transactions: CollectionConfig = {
     },
     {
       name: 'description',
-      type: 'textarea',
+      type: 'text',
       admin: {
-        description: 'Deskripsi opsional untuk transaksi',
+        description: 'Deskripsi transaksi',
+      },
+    },
+    {
+      name: 'relatedGoal',
+      type: 'relationship',
+      relationTo: 'financial-goals',
+      admin: {
+        description: 'Tujuan keuangan terkait (opsional)',
+      },
+    },
+    {
+      name: 'relatedSubGoal',
+      type: 'relationship',
+      relationTo: 'sub-goals',
+      admin: {
+        description: 'Kantong/sub-tujuan terkait (opsional)',
       },
     },
   ],
@@ -105,13 +121,39 @@ export const Transactions: CollectionConfig = {
     afterChange: [
       async ({ doc, req, operation }) => {
         if (operation === 'create' || operation === 'update') {
-          await recalculateFinancialScore(doc.user, req.payload)
+          await recalculateFinancialData(doc.user, req.payload)
+
+          // Update goal and sub-goal if related
+          if (doc.relatedSubGoal) {
+            const subGoal = await req.payload.findByID({
+              collection: 'sub-goals',
+              id: doc.relatedSubGoal,
+            })
+
+            if (subGoal) {
+              let newAllocatedAmount = subGoal.allocatedAmount || 0
+
+              if (doc.type === 'income') {
+                newAllocatedAmount += doc.amount
+              } else if (doc.type === 'expense') {
+                newAllocatedAmount = Math.max(0, newAllocatedAmount - doc.amount)
+              }
+
+              await req.payload.update({
+                collection: 'sub-goals',
+                id: doc.relatedSubGoal,
+                data: {
+                  allocatedAmount: newAllocatedAmount,
+                },
+              })
+            }
+          }
         }
       },
     ],
     afterDelete: [
       async ({ doc, req }) => {
-        await recalculateFinancialScore(doc.user, req.payload)
+        await recalculateFinancialData(doc.user, req.payload)
       },
     ],
   },

@@ -39,5 +39,40 @@ export const FinancialScores: CollectionConfig = {
       required: true,
       defaultValue: () => new Date(),
     },
+    {
+      name: 'debtToIncomeRatio',
+      type: 'number',
+      min: 0,
+      max: 100,
+      admin: {
+        description: 'Rasio utang terhadap pendapatan (%)',
+      },
+    },
+    {
+      name: 'savingsToIncomeRatio',
+      type: 'number',
+      min: 0,
+      max: 100,
+      admin: {
+        description: 'Rasio tabungan terhadap pendapatan (%)',
+      },
+    },
+    {
+      name: 'expensesToIncomeRatio',
+      type: 'number',
+      min: 0,
+      max: 100,
+      admin: {
+        description: 'Rasio pengeluaran terhadap pendapatan (%)',
+      },
+    },
+    {
+      name: 'netWorthRatio',
+      type: 'number',
+      min: 0,
+      admin: {
+        description: 'Rasio kekayaan bersih terhadap pendapatan tahunan',
+      },
+    },
   ],
 }

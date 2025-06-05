@@ -5,8 +5,9 @@ import { Toaster } from '../../components/ui/sonner'
 import { QueryProvider } from '../../providers/query-provider'
 
 export const metadata = {
-  description: 'A blank template using Payload in a Next.js app.',
-  title: 'Payload Blank Template',
+  title: 'Financial Tracker - Kelola Keuangan Pribadi',
+  description:
+    'Aplikasi pencatatan dan evaluasi keuangan pribadi yang membantu Anda mengelola keuangan dengan lebih baik',
 }
 
 export default async function RootLayout(props: { children: React.ReactNode }) {

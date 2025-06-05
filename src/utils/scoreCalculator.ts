@@ -1,103 +1,170 @@
 interface FinancialData {
-  income: number
-  expenses: number
-  assets: number
-  liabilities: number
+  monthlyIncome: number
+  monthlyExpenses: number
+  totalAssets: number
+  totalLiabilities: number
+}
+
+interface ScoreComponents {
+  debtToIncomeRatio: number
+  savingsToIncomeRatio: number
+  expensesToIncomeRatio: number
+  netWorthRatio: number
+  debtToIncomeScore: number
+  savingsToIncomeScore: number
+  expensesToIncomeScore: number
+  netWorthScore: number
 }
 
 export function calculateFinancialScore(data: FinancialData): number {
-  const { income, expenses, assets, liabilities } = data
+  const { monthlyIncome, monthlyExpenses, totalAssets, totalLiabilities } = data
+  const annualIncome = monthlyIncome * 12
 
-  // Formula skor keuangan (0-100)
-  // 1. Rasio tabungan (30%): (income - expenses) / income
-  // 2. Rasio utang terhadap aset (25%): liabilities / assets
-  // 3. Rasio pengeluaran terhadap pemasukan (25%): expenses / income
-  // 4. Net worth relatif (20%): (assets - liabilities) / income
+  // Calculate ratios
+  const debtToIncomeRatio = annualIncome > 0 ? (totalLiabilities / annualIncome) * 100 : 100
+  const savingsToIncomeRatio = monthlyIncome > 0 ? ((monthlyIncome - monthlyExpenses) / monthlyIncome) * 100 : 0
+  const expensesToIncomeRatio = monthlyIncome > 0 ? (monthlyExpenses / monthlyIncome) * 100 : 100
+  const netWorthRatio = annualIncome > 0 ? (totalAssets - totalLiabilities) / annualIncome : 0
 
-  let score = 0
+  // Calculate scores for each component
+  // 1. Debt-to-Income Ratio (30 points) - lower is better
+  // Ideal: < 30%
+  const debtToIncomeScore = debtToIncomeRatio <= 30 ? 30 : Math.max(0, 30 - (debtToIncomeRatio - 30) / 3)
 
-  // 1. Savings ratio (30 points max)
-  const savingsRatio = income > 0 ? (income - expenses) / income : 0
-  const savingsScore = Math.max(0, Math.min(30, savingsRatio * 30))
-  score += savingsScore
+  // 2. Savings-to-Income Ratio (30 points) - higher is better
+  // Ideal: > 20%
+  const savingsToIncomeScore = savingsToIncomeRatio >= 20 ? 30 : Math.max(0, (savingsToIncomeRatio / 20) * 30)
 
-  // 2. Debt to asset ratio (25 points max) - lower is better
-  const debtRatio = assets > 0 ? liabilities / assets : 1
-  const debtScore = Math.max(0, 25 - debtRatio * 25)
-  score += debtScore
+  // 3. Expenses-to-Income Ratio (20 points) - lower is better
+  // Ideal: < 60%
+  const expensesToIncomeScore =
+    expensesToIncomeRatio <= 60 ? 20 : Math.max(0, 20 - ((expensesToIncomeRatio - 60) / 40) * 20)
 
-  // 3. Expense ratio (25 points max) - lower is better
-  const expenseRatio = income > 0 ? expenses / income : 1
-  const expenseScore = Math.max(0, 25 - expenseRatio * 25)
-  score += expenseScore
+  // 4. Net Worth Ratio (20 points) - higher is better
+  // Ideal: > 1 year of income
+  const netWorthScore = netWorthRatio >= 1 ? 20 : Math.max(0, netWorthRatio * 20)
 
-  // 4. Net worth relative to income (20 points max)
-  const netWorth = assets - liabilities
-  const netWorthRatio = income > 0 ? netWorth / (income * 12) : 0 // Annual income
-  const netWorthScore = Math.max(0, Math.min(20, netWorthRatio * 20))
-  score += netWorthScore
+  // Calculate total score (0-100)
+  const totalScore = Math.round(debtToIncomeScore + savingsToIncomeScore + expensesToIncomeScore + netWorthScore)
 
-  return Math.round(Math.max(0, Math.min(100, score)))
+  return Math.max(0, Math.min(100, totalScore))
 }
 
-export async function recalculateFinancialScore(userId: string, payload: any) {
+export function getScoreComponents(data: FinancialData): ScoreComponents {
+  const { monthlyIncome, monthlyExpenses, totalAssets, totalLiabilities } = data
+  const annualIncome = monthlyIncome * 12
+
+  // Calculate ratios
+  const debtToIncomeRatio = annualIncome > 0 ? (totalLiabilities / annualIncome) * 100 : 100
+  const savingsToIncomeRatio = monthlyIncome > 0 ? ((monthlyIncome - monthlyExpenses) / monthlyIncome) * 100 : 0
+  const expensesToIncomeRatio = monthlyIncome > 0 ? (monthlyExpenses / monthlyIncome) * 100 : 100
+  const netWorthRatio = annualIncome > 0 ? (totalAssets - totalLiabilities) / annualIncome : 0
+
+  // Calculate scores for each component
+  const debtToIncomeScore = debtToIncomeRatio <= 30 ? 30 : Math.max(0, 30 - (debtToIncomeRatio - 30) / 3)
+  const savingsToIncomeScore = savingsToIncomeRatio >= 20 ? 30 : Math.max(0, (savingsToIncomeRatio / 20) * 30)
+  const expensesToIncomeScore =
+    expensesToIncomeRatio <= 60 ? 20 : Math.max(0, 20 - ((expensesToIncomeRatio - 60) / 40) * 20)
+  const netWorthScore = netWorthRatio >= 1 ? 20 : Math.max(0, netWorthRatio * 20)
+
+  return {
+    debtToIncomeRatio,
+    savingsToIncomeRatio,
+    expensesToIncomeRatio,
+    netWorthRatio,
+    debtToIncomeScore,
+    savingsToIncomeScore,
+    expensesToIncomeScore,
+    netWorthScore,
+  }
+}
+
+export async function recalculateFinancialData(userId: string, payload: any) {
   try {
-    // Get latest evaluation
-    const evaluation = await payload.find({
-      collection: 'initial-evaluations',
+    // Get latest financial data
+    const financialData = await payload.find({
+      collection: "financial-data",
       where: {
         user: {
           equals: userId,
         },
       },
+      sort: "-createdAt",
       limit: 1,
     })
 
-    if (!evaluation.docs.length) return
+    if (!financialData.docs.length) return
 
-    const evalData = evaluation.docs[0]
+    const latestData = financialData.docs[0]
 
     // Get all transactions for this user
     const transactions = await payload.find({
-      collection: 'transactions',
+      collection: "transactions",
       where: {
         user: {
           equals: userId,
         },
       },
-      limit: 1000, // Adjust as needed
+      limit: 1000,
     })
 
     // Calculate updated financial data based on transactions
-    let totalIncome = evalData.income
-    let totalExpenses = evalData.expenses
+    const totalIncome = latestData.monthlyIncome
+    const totalExpenses = latestData.monthlyExpenses
+    let totalAssets = latestData.totalAssets
+    const totalLiabilities = latestData.totalLiabilities
 
-    transactions.docs.forEach((transaction: any) => {
-      if (transaction.type === 'income') {
-        totalIncome += transaction.amount
+    // Only consider transactions after the latest financial data snapshot
+    const latestDataDate = new Date(latestData.createdAt)
+    const relevantTransactions = transactions.docs.filter(
+      (transaction: any) => new Date(transaction.date) > latestDataDate,
+    )
+
+    relevantTransactions.forEach((transaction: any) => {
+      if (transaction.type === "income") {
+        totalAssets += transaction.amount
       } else {
-        totalExpenses += transaction.amount
+        totalAssets -= transaction.amount
       }
     })
 
-    // Recalculate score with updated data
-    const newScore = calculateFinancialScore({
-      income: totalIncome,
-      expenses: totalExpenses,
-      assets: evalData.assets,
-      liabilities: evalData.liabilities,
-    })
+    // Create new financial data record
+    const newData = {
+      user: userId,
+      monthlyIncome: totalIncome,
+      monthlyExpenses: totalExpenses,
+      totalAssets: totalAssets,
+      totalLiabilities: totalLiabilities,
+    }
+
+    // Calculate score components
+    const scoreComponents = getScoreComponents(newData)
+    const newScore = calculateFinancialScore(newData)
 
     // Create new financial score record
     await payload.create({
-      collection: 'financial-scores',
+      collection: "financial-scores",
       data: {
         user: userId,
         score: newScore,
         evaluatedAt: new Date(),
+        debtToIncomeRatio: scoreComponents.debtToIncomeRatio,
+        savingsToIncomeRatio: scoreComponents.savingsToIncomeRatio,
+        expensesToIncomeRatio: scoreComponents.expensesToIncomeRatio,
+        netWorthRatio: scoreComponents.netWorthRatio,
+      },
+    })
+
+    // Update financial data
+    await payload.create({
+      collection: "financial-data",
+      data: {
+        ...newData,
+        netWorth: totalAssets - totalLiabilities,
+        score: newScore,
       },
     })
   } catch (error) {
-    console.error('Error recalculating financial score:', error)
+    console.error("Error recalculating financial data:", error)
   }
 }

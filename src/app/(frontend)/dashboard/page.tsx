@@ -5,28 +5,13 @@ import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ScoreGraph } from '@/components/score-graph'
-import { IncomeExpenseChart } from '@/components/income-expense-chart'
 import { RecentTransactions } from '@/components/recent-transactions'
-import { TrendingUp, TrendingDown, DollarSign, Target } from 'lucide-react'
+import { ScoreBreakdown } from '@/components/score-breakdown'
+import { GoalsList } from '@/components/goals-list'
+import { TrendingUp, TrendingDown, DollarSign, Target, Plus, BarChart3 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-
-interface DashboardData {
-  currentScore: number
-  scoreHistory: Array<{ date: string; score: number }>
-  monthlyIncome: number
-  monthlyExpenses: number
-  totalTransactions: number
-  recentTransactions: Array<{
-    id: string
-    type: 'income' | 'expense'
-    category: string
-    amount: number
-    date: string
-    description?: string
-  }>
-}
 
 export default function Dashboard() {
   const { user, loading } = useAuth()
@@ -38,7 +23,7 @@ export default function Dashboard() {
     }
   }, [user, loading, router])
 
-  const { data: dashboardData, isLoading } = useQuery<DashboardData>({
+  const { data: dashboardData, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: async () => {
       const token = localStorage.getItem('token')
@@ -64,6 +49,7 @@ export default function Dashboard() {
   if (!user) return null
 
   const netIncome = (dashboardData?.monthlyIncome || 0) - (dashboardData?.monthlyExpenses || 0)
+  const hasFinancialData = !!dashboardData?.financialData
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -77,7 +63,10 @@ export default function Dashboard() {
             </div>
             <div className="space-x-4">
               <Link href="/transactions/new">
-                <Button>Tambah Transaksi</Button>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Tambah Transaksi
+                </Button>
               </Link>
               <Button variant="outline" onClick={() => router.push('/profile')}>
                 Profile
@@ -88,6 +77,21 @@ export default function Dashboard() {
       </header>
 
       <div className="container mx-auto px-4 py-8">
+        {!hasFinancialData && (
+          <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h2 className="text-lg font-semibold text-blue-800 mb-2">
+              Mulai Evaluasi Keuangan Anda
+            </h2>
+            <p className="text-blue-700 mb-4">
+              Untuk mendapatkan skor keuangan dan rekomendasi yang sesuai, silakan isi data keuangan
+              awal Anda.
+            </p>
+            <Link href="/evaluation">
+              <Button>Isi Evaluasi Keuangan</Button>
+            </Link>
+          </div>
+        )}
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
@@ -110,7 +114,11 @@ export default function Dashboard() {
               <div className="text-2xl font-bold">
                 Rp {(dashboardData?.monthlyIncome || 0).toLocaleString('id-ID')}
               </div>
-              <p className="text-xs text-muted-foreground">+20.1% dari bulan lalu</p>
+              <p className="text-xs text-muted-foreground">
+                {hasFinancialData
+                  ? `${((dashboardData.monthlyIncome / dashboardData.financialData.monthlyIncome - 1) * 100).toFixed(1)}% dari rata-rata`
+                  : 'Belum ada data pembanding'}
+              </p>
             </CardContent>
           </Card>
 
@@ -123,7 +131,11 @@ export default function Dashboard() {
               <div className="text-2xl font-bold">
                 Rp {(dashboardData?.monthlyExpenses || 0).toLocaleString('id-ID')}
               </div>
-              <p className="text-xs text-muted-foreground">+4% dari bulan lalu</p>
+              <p className="text-xs text-muted-foreground">
+                {hasFinancialData
+                  ? `${((dashboardData.monthlyExpenses / dashboardData.financialData.monthlyExpenses - 1) * 100).toFixed(1)}% dari rata-rata`
+                  : 'Belum ada data pembanding'}
+              </p>
             </CardContent>
           </Card>
 
@@ -156,24 +168,53 @@ export default function Dashboard() {
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Pemasukan vs Pengeluaran</CardTitle>
-              <CardDescription>Perbandingan pemasukan dan pengeluaran per kategori</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Komponen Skor Keuangan</CardTitle>
+                <CardDescription>Breakdown skor keuangan Anda</CardDescription>
+              </div>
+              <Link href="/evaluation">
+                <Button variant="outline" size="sm">
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  Update Data
+                </Button>
+              </Link>
             </CardHeader>
             <CardContent>
-              <IncomeExpenseChart
-                income={dashboardData?.monthlyIncome || 0}
-                expenses={dashboardData?.monthlyExpenses || 0}
-              />
+              <ScoreBreakdown scoreComponents={dashboardData?.scoreComponents} />
             </CardContent>
           </Card>
         </div>
 
+        {/* Financial Goals */}
+        <Card className="mb-8">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Tujuan Keuangan</CardTitle>
+              <CardDescription>Progres tujuan keuangan Anda</CardDescription>
+            </div>
+            <Link href="/goals/new">
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Tambah Tujuan
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <GoalsList goals={dashboardData?.goals || []} />
+          </CardContent>
+        </Card>
+
         {/* Recent Transactions */}
         <Card>
-          <CardHeader>
-            <CardTitle>Transaksi Terbaru</CardTitle>
-            <CardDescription>5 transaksi terakhir yang Anda catat</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Transaksi Terbaru</CardTitle>
+              <CardDescription>5 transaksi terakhir yang Anda catat</CardDescription>
+            </div>
+            {/* <Link href="/transactions">
+              <Button variant="outline">Lihat Semua</Button>
+            </Link> */}
           </CardHeader>
           <CardContent>
             <RecentTransactions transactions={dashboardData?.recentTransactions || []} />
