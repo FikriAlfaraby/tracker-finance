@@ -399,8 +399,8 @@ export default function PocketsPage() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Hapus Kantong</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Apakah Anda yakin ingin menghapus kantong "{pocket.name}"? Tindakan ini
-                            tidak dapat dibatalkan.
+                            Apakah Anda yakin ingin menghapus kantong &quot;{pocket.name}&quot;?
+                            Tindakan ini tidak dapat dibatalkan.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

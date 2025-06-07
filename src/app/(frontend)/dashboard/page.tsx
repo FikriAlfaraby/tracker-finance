@@ -28,7 +28,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 export default function Dashboard() {
   const { user, loading } = useAuth()
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState('overview')
+  const [_activeTab, setActiveTab] = useState('overview')
 
   useEffect(() => {
     if (!loading && !user) {
@@ -77,7 +77,7 @@ export default function Dashboard() {
 
   if (!user) return null
 
-  const netIncome = (dashboardData?.monthlyIncome || 0) - (dashboardData?.monthlyExpenses || 0)
+  // const netIncome = (dashboardData?.monthlyIncome || 0) - (dashboardData?.monthlyExpenses || 0)
   const hasFinancialData = !!dashboardData?.financialData
 
   // Filter active pockets
