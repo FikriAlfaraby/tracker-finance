@@ -1,67 +1,316 @@
-# Payload Blank Template
+# Personal Finance Tracker - Setup Guide
 
-This template comes configured with the bare minimum to get started on anything you need.
+Selamat datang di panduan setup Personal Finance Tracker, sebuah aplikasi manajemen keuangan pribadi yang dibangun menggunakan **Next.js**, **Payload CMS**, **pnpm** sebagai package manager, dan **MongoDB** sebagai database. Panduan ini dirancang untuk pengguna yang memulai dari nol dan mencakup langkah instalasi untuk macOS dan Windows.
 
-## Quick start
+## 📋 Prerequisites
 
-This template can be deployed directly from our Cloud hosting and it will setup MongoDB and cloud S3 object storage for media.
+Sebelum memulai, pastikan Anda memiliki:
 
-## Quick Start - local setup
+- Koneksi internet yang stabil
+- Tidak perlu instalasi software sebelumnya—kami akan memandu Anda melalui semuanya
 
-To spin up this template locally, follow these steps:
+## 🚀 Step 1: Install Node.js dan npm
 
-### Clone
+Personal Finance Tracker memerlukan Node.js, yang sudah termasuk npm (Node Package Manager). Ikuti langkah-langkah di bawah berdasarkan sistem operasi Anda.
 
-After you click the `Deploy` button above, you'll want to have standalone copy of this repo on your machine. If you've already cloned this repo, skip to [Development](#development).
+### Untuk macOS
 
-### Development
+1. **Download Node.js**:
 
-1. First [clone the repo](#clone) if you have not done so already
-2. `cd my-project && cp .env.example .env` to copy the example environment variables. You'll need to add the `MONGODB_URI` from your Cloud project to your `.env` if you want to use S3 storage and the MongoDB database that was created for you.
+   - Kunjungi [nodejs.org](https://nodejs.org/) dan download versi LTS (Long Term Support) untuk macOS
+   - Buka file `.pkg` yang telah didownload dan ikuti wizard instalasi
+   - Klik "Continue" dan "Install" ketika diminta
 
-3. `pnpm install && pnpm dev` to install dependencies and start the dev server
-4. open `http://localhost:3000` to open the app in your browser
+2. **Verifikasi Instalasi**:
+   - Buka **Terminal** (cari menggunakan Spotlight dengan `Cmd + Space` dan ketik "Terminal")
+   - Ketik perintah berikut dan tekan Enter:
+   ```bash
+   node -v
+   npm -v
+   ```
+   - Anda harus melihat nomor versi (contoh: v18.x.x untuk Node.js dan 9.x.x untuk npm)
+   - Jika tidak, install ulang Node.js
 
-That's it! Changes made in `./src` will be reflected in your app. Follow the on-screen instructions to login and create your first admin user. Then check out [Production](#production) once you're ready to build and serve your app, and [Deployment](#deployment) when you're ready to go live.
+### Untuk Windows
 
-#### Docker (Optional)
+1. **Download Node.js**:
 
-If you prefer to use Docker for local development instead of a local MongoDB instance, the provided docker-compose.yml file can be used.
+   - Kunjungi [nodejs.org](https://nodejs.org/) dan download versi LTS untuk Windows
+   - Jalankan file `.msi` yang telah didownload
+   - **Penting**: Centang kotak "Add to PATH" selama instalasi, kemudian klik "Next" dan "Install"
 
-To do so, follow these steps:
+2. **Verifikasi Instalasi**:
+   - Buka Command Prompt (cari "cmd" di Start menu)
+   - Ketik perintah berikut dan tekan Enter:
+   ```cmd
+   node -v
+   npm -v
+   ```
+   - Anda harus melihat nomor versi
+   - Jika tidak, install ulang Node.js dan pastikan "Add to PATH" telah dipilih
 
-- Modify the `MONGODB_URI` in your `.env` file to `mongodb://127.0.0.1/<dbname>`
-- Modify the `docker-compose.yml` file's `MONGODB_URI` to match the above `<dbname>`
-- Run `docker-compose up` to start the database, optionally pass `-d` to run in the background.
+## 📦 Step 2: Install pnpm
 
-## How it works
+pnpm adalah package manager yang lebih cepat yang akan kita gunakan untuk Personal Finance Tracker.
 
-The Payload config is tailored specifically to the needs of most websites. It is pre-configured in the following ways:
+### Untuk macOS
 
-### Collections
+1. **Install pnpm**:
 
-See the [Collections](https://payloadcms.com/docs/configuration/collections) docs for details on how to extend this functionality.
+   - Di Terminal, jalankan:
 
-- #### Users (Authentication)
+   ```bash
+   npm install -g pnpm
+   ```
 
-  Users are auth-enabled collections that have access to the admin panel.
+   - Ini akan menginstall pnpm secara global. Tunggu hingga proses selesai
 
-  For additional help, see the official [Auth Example](https://github.com/payloadcms/payload/tree/main/examples/auth) or the [Authentication](https://payloadcms.com/docs/authentication/overview#authentication-overview) docs.
+2. **Verifikasi Instalasi**:
+   - Jalankan:
+   ```bash
+   pnpm -v
+   ```
+   - Anda harus melihat nomor versi (contoh: 8.x.x)
+   - Jika tidak, ulangi instalasi
 
-- #### Media
+### Untuk Windows
 
-  This is the uploads enabled collection. It features pre-configured sizes, focal point and manual resizing to help you manage your pictures.
+1. **Install pnpm**:
 
-### Docker
+   - Di Command Prompt, jalankan:
 
-Alternatively, you can use [Docker](https://www.docker.com) to spin up this template locally. To do so, follow these steps:
+   ```cmd
+   npm install -g pnpm
+   ```
 
-1. Follow [steps 1 and 2 from above](#development), the docker-compose file will automatically use the `.env` file in your project root
-1. Next run `docker-compose up`
-1. Follow [steps 4 and 5 from above](#development) to login and create your first admin user
+   - Tunggu hingga instalasi selesai
 
-That's it! The Docker instance will help you get up and running quickly while also standardizing the development environment across your teams.
+2. **Verifikasi Instalasi**:
+   - Jalankan:
+   ```cmd
+   pnpm -v
+   ```
+   - Anda harus melihat nomor versi
+   - Jika tidak, coba ulangi perintah
 
-## Questions
+## 🗄️ Step 3: Install MongoDB
 
-If you have any issues or questions, reach out to us on [Discord](https://discord.com/invite/payload) or start a [GitHub discussion](https://github.com/payloadcms/payload/discussions).
+Personal Finance Tracker menggunakan MongoDB sebagai database.
+
+### Untuk macOS
+
+1. **Install MongoDB**:
+
+   - Buka Terminal dan install MongoDB via Homebrew:
+
+   ```bash
+   # Install Homebrew jika belum ada
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+   # Install MongoDB
+   brew tap mongodb/brew
+   brew install mongodb-community
+   ```
+
+   - Ikuti instruksi yang muncul di layar
+
+2. **Start MongoDB**:
+   - Jalankan:
+   ```bash
+   brew services start mongodb-community
+   ```
+   - Verifikasi dengan:
+   ```bash
+   mongod --version
+   ```
+
+### Untuk Windows
+
+1. **Install MongoDB**:
+
+   - Download MongoDB Community Server dari [mongodb.com](https://www.mongodb.com/try/download/community)
+   - Jalankan installer `.msi`
+   - Pilih "Complete" setup dan install sebagai service (centang kotak selama instalasi)
+
+2. **Start MongoDB**:
+   - Buka Command Prompt sebagai Administrator dan jalankan:
+   ```cmd
+   net start MongoDB
+   ```
+   - Verifikasi dengan:
+   ```cmd
+   mongo --version
+   ```
+   - Jika tidak bisa start, pastikan MongoDB service aktif di "Services" (cari "Services" di Start menu)
+
+## 🏗️ Step 4: Setup Personal Finance Tracker
+
+### 1. Clone atau Download Project
+
+- Jika ini adalah Git repository, jalankan:
+
+```bash
+git clone <repository-url>
+cd personal-finance-tracker
+```
+
+- Atau download file project dan extract ke folder, kemudian buka Terminal (macOS) atau Command Prompt (Windows) di folder tersebut
+
+### 2. Install Dependencies
+
+- Jalankan:
+
+```bash
+pnpm install
+```
+
+- Ini akan menginstall semua package yang diperlukan berdasarkan `package.json`
+
+### 3. Setup Environment Variables
+
+- Copy file `.env.example` menjadi `.env.local`:
+
+```bash
+# macOS/Linux
+cp .env.example .env.local
+
+# Windows
+copy .env.example .env.local
+```
+
+- Edit file `.env.local` dan isi dengan konfigurasi berikut:
+
+```env
+# Database
+DATABASE_URI=mongodb://localhost:27017/personal-finance-tracker
+
+# Payload CMS
+PAYLOAD_SECRET=your-super-secret-key-here
+FRONTEND_URL=http://localhost:3000
+PORT=3000
+
+# Next.js
+NEXT_PUBLIC_API_URL=http://localhost:3000
+```
+
+### 4. Setup Database
+
+- Pastikan MongoDB berjalan (dari Step 3)
+- Database akan otomatis dibuat saat pertama kali menjalankan aplikasi
+
+### 5. Run Development Server
+
+- Start server development dengan:
+
+```bash
+pnpm dev
+```
+
+- Buka browser dan kunjungi [http://localhost:3000](http://localhost:3000)
+- Anda akan melihat interface Personal Finance Tracker
+
+### 6. Setup Admin Panel (Payload CMS)
+
+- Kunjungi [http://localhost:3000/admin](http://localhost:3000/admin)
+- Buat akun admin pertama kali
+- Gunakan admin panel untuk mengelola data jika diperlukan
+
+## 🎯 Fitur Utama Aplikasi
+
+### 💰 Manajemen Kantong (Pocket Management)
+
+- Buat kantong untuk berbagai tujuan (Utama, Tabungan, Dana Darurat, dll.)
+- Transfer antar kantong
+- Monitor saldo real-time
+
+### 📝 Pencatatan Transaksi
+
+- Catat pemasukan dan pengeluaran
+- Setiap transaksi harus terkait dengan kantong
+- Validasi saldo otomatis
+
+### 📊 Evaluasi Keuangan
+
+- Sistem scoring keuangan
+- Analisis rasio keuangan
+- Tracking progress keuangan
+
+### 🎨 Interface Modern
+
+- Responsive design
+- Dark/Light mode support
+- Intuitive user experience
+
+## 🔧 Troubleshooting
+
+### Node.js/npm/pnpm tidak ditemukan
+
+- Install ulang Node.js dan pastikan ditambahkan ke system PATH
+- Restart terminal/command prompt setelah instalasi
+
+### MongoDB tidak bisa connect
+
+- Pastikan MongoDB service berjalan
+- Cek apakah `DATABASE_URI` di `.env.local` sudah benar
+- Untuk Windows, pastikan service MongoDB aktif di Services
+
+### Error saat pnpm install
+
+- Pastikan koneksi internet stabil
+- Hapus folder `node_modules` dan file `pnpm-lock.yaml`, kemudian jalankan `pnpm install` lagi
+- Coba gunakan `pnpm install --force`
+
+### Port 3000 sudah digunakan
+
+- Ubah PORT di `.env.local` ke port lain (contoh: 3001)
+- Atau stop aplikasi yang menggunakan port 3000
+
+### Payload CMS Admin tidak bisa diakses
+
+- Pastikan `PAYLOAD_SECRET` sudah diset di `.env.local`
+- Cek apakah database connection berhasil
+- Restart development server
+
+## 📚 Struktur Project
+
+```
+personal-finance-tracker/
+├── app/                    # Next.js App Router pages
+├── components/             # React components
+├── src/
+│   ├── collections/        # Payload CMS collections
+│   └── payload.config.ts   # Payload configuration
+├── lib/                    # Utility functions
+├── hooks/                  # Custom React hooks
+├── contexts/               # React contexts
+├── .env.example           # Environment variables template
+├── package.json           # Dependencies
+└── README.md              # This file
+```
+
+## 🚀 Next Steps
+
+1. **Eksplorasi Interface**: Jelajahi dashboard dan fitur-fitur yang tersedia
+2. **Buat Kantong Pertama**: Mulai dengan membuat kantong utama
+3. **Tambah Transaksi**: Catat transaksi pertama Anda
+4. **Evaluasi Keuangan**: Isi data keuangan untuk mendapat skor
+5. **Customization**: Sesuaikan kantong dan kategori sesuai kebutuhan
+
+## 📞 Support
+
+Jika mengalami masalah atau butuh bantuan:
+
+- Baca dokumentasi troubleshooting di atas
+- Check issue yang sudah ada di repository
+- Buat issue baru jika diperlukan
+
+---
+
+**Selamat menggunakan Personal Finance Tracker! 🎉**
+
+_Kelola keuangan Anda dengan lebih baik dan capai tujuan finansial impian._
+
+```
+
+Ini adalah README.md yang komprehensif dan detail untuk Personal Finance Tracker, mencakup semua langkah instalasi dari nol untuk pengguna macOS dan Windows, plus penjelasan fitur dan troubleshooting yang lengkap.
+```
