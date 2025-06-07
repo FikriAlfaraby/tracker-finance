@@ -5,7 +5,7 @@ export const Transactions: CollectionConfig = {
   slug: 'transactions',
   admin: {
     useAsTitle: 'description',
-    defaultColumns: ['user', 'type', 'category', 'amount', 'date'],
+    defaultColumns: ['user', 'type', 'category', 'amount', 'sourcePocket', 'date'],
   },
   access: {
     read: ({ req: { user } }) => {
@@ -60,6 +60,15 @@ export const Transactions: CollectionConfig = {
       required: true,
     },
     {
+      name: 'sourcePocket',
+      type: 'relationship',
+      relationTo: 'pockets',
+      required: true,
+      admin: {
+        description: 'Kantong sumber dana untuk transaksi ini',
+      },
+    },
+    {
       name: 'category',
       type: 'select',
       options: [
@@ -100,60 +109,105 @@ export const Transactions: CollectionConfig = {
         description: 'Deskripsi transaksi',
       },
     },
-    {
-      name: 'relatedGoal',
-      type: 'relationship',
-      relationTo: 'financial-goals',
-      admin: {
-        description: 'Tujuan keuangan terkait (opsional)',
-      },
-    },
-    {
-      name: 'relatedSubGoal',
-      type: 'relationship',
-      relationTo: 'sub-goals',
-      admin: {
-        description: 'Kantong/sub-tujuan terkait (opsional)',
-      },
-    },
   ],
   hooks: {
-    afterChange: [
-      async ({ doc, req, operation }) => {
-        if (operation === 'create' || operation === 'update') {
-          await recalculateFinancialData(doc.user, req.payload)
-
-          // Update goal and sub-goal if related
-          if (doc.relatedSubGoal) {
-            const subGoal = await req.payload.findByID({
-              collection: 'sub-goals',
-              id: doc.relatedSubGoal,
+    beforeChange: [
+      async ({ data, req }) => {
+        // Validate pocket balance for expenses
+        if (data.type === 'expense' && data.sourcePocket && data.amount) {
+          try {
+            const pocket = await req.payload.findByID({
+              collection: 'pockets',
+              id: data.sourcePocket,
             })
 
-            if (subGoal) {
-              let newAllocatedAmount = subGoal.allocatedAmount || 0
-
-              if (doc.type === 'income') {
-                newAllocatedAmount += doc.amount
-              } else if (doc.type === 'expense') {
-                newAllocatedAmount = Math.max(0, newAllocatedAmount - doc.amount)
-              }
-
-              await req.payload.update({
-                collection: 'sub-goals',
-                id: doc.relatedSubGoal,
-                data: {
-                  allocatedAmount: newAllocatedAmount,
-                },
-              })
+            if (pocket?.balance !== undefined && (pocket?.balance || 0) < data.amount) {
+              throw new Error(
+                `Saldo kantong ${pocket?.name || 'unknown'} tidak mencukupi. Saldo: Rp ${pocket?.balance?.toLocaleString('id-ID') || '0'}, Dibutuhkan: Rp ${data.amount.toLocaleString('id-ID')}`,
+              )
             }
+          } catch (error) {
+            throw error
+          }
+        }
+        return data
+      },
+    ],
+    afterChange: [
+      async ({ doc, req, operation }) => {
+        if (operation === 'create') {
+          try {
+            // Update source pocket balance
+            if (doc.sourcePocket) {
+              const pocket = await req.payload.findByID({
+                collection: 'pockets',
+                id: doc.sourcePocket.id,
+              })
+
+              if (pocket) {
+                let newBalance = pocket?.balance || 0
+
+                if (doc.type === 'income') {
+                  // Add to pocket for income
+                  newBalance = (pocket?.balance || 0) + doc.amount
+                } else if (doc.type === 'expense') {
+                  // Subtract from pocket for expense
+                  newBalance = Math.max(0, (pocket?.balance || 0) - doc.amount)
+                }
+
+                await req.payload.update({
+                  collection: 'pockets',
+                  id: doc.sourcePocket.id,
+                  data: {
+                    balance: newBalance,
+                  },
+                })
+              }
+            }
+
+            // Recalculate financial data
+            await recalculateFinancialData(doc.user, req.payload)
+          } catch (error) {
+            console.error('Error updating balances after transaction:', error)
           }
         }
       },
     ],
     afterDelete: [
       async ({ doc, req }) => {
-        await recalculateFinancialData(doc.user, req.payload)
+        try {
+          // Reverse the pocket balance change
+          if (doc.sourcePocket) {
+            const pocket = await req.payload.findByID({
+              collection: 'pockets',
+              id: doc.sourcePocket.id,
+            })
+
+            if (pocket) {
+              let newBalance = pocket?.balance || 0
+
+              if (doc.type === 'income') {
+                // Subtract back the income
+                newBalance = Math.max(0, (pocket?.balance || 0) - doc.amount)
+              } else if (doc.type === 'expense') {
+                // Add back the expense
+                newBalance = pocket.balance + doc.amount
+              }
+
+              await req.payload.update({
+                collection: 'pockets',
+                id: doc.sourcePocket.id,
+                data: {
+                  balance: newBalance,
+                },
+              })
+            }
+          }
+
+          await recalculateFinancialData(doc.user, req.payload)
+        } catch (error) {
+          console.error('Error reversing balances after transaction deletion:', error)
+        }
       },
     ],
   },

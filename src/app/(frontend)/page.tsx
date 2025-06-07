@@ -17,8 +17,8 @@ export default function LandingPage() {
             <Link href="/login">
               <Button variant="ghost">Masuk</Button>
             </Link>
-            <Link href="/register">
-              <Button>Daftar</Button>
+            <Link href="/evaluation-flow">
+              <Button>Mulai Evaluasi</Button>
             </Link>
           </div>
         </nav>
@@ -30,13 +30,13 @@ export default function LandingPage() {
           Kelola Keuangan Pribadi dengan <span className="text-blue-600">Lebih Cerdas</span>
         </h1>
         <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-          Evaluasi kondisi keuangan Anda, catat transaksi harian, dan pantau perkembangan skor
-          keuangan untuk mencapai tujuan finansial yang lebih baik.
+          Evaluasi kondisi keuangan Anda, kelola dana dengan sistem kantong, dan pantau perkembangan
+          skor keuangan untuk mencapai tujuan finansial yang lebih baik.
         </p>
         <div className="space-x-4">
-          <Link href="/register">
+          <Link href="/evaluation-flow">
             <Button size="lg" className="px-8">
-              Mulai Sekarang
+              Mulai Evaluasi Gratis
             </Button>
           </Link>
           <Link href="/login">
@@ -79,11 +79,12 @@ export default function LandingPage() {
           <Card>
             <CardHeader>
               <TrendingUp className="h-12 w-12 text-purple-600 mb-4" />
-              <CardTitle>Pencatatan Transaksi</CardTitle>
+              <CardTitle>Sistem Kantong</CardTitle>
             </CardHeader>
             <CardContent>
               <CardDescription>
-                Catat pemasukan dan pengeluaran harian dengan mudah dan terorganisir
+                Kelola dana dengan sistem kantong seperti Jago untuk mengatur alokasi keuangan
+                dengan lebih baik
               </CardDescription>
             </CardContent>
           </Card>
@@ -107,11 +108,11 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold mb-6">Siap Mengambil Kontrol Keuangan Anda?</h2>
           <p className="text-xl mb-8 opacity-90">
-            Bergabunglah dengan ribuan pengguna yang telah merasakan manfaatnya
+            Mulai dengan evaluasi keuangan gratis dan dapatkan skor keuangan personal Anda
           </p>
-          <Link href="/register">
+          <Link href="/evaluation-flow">
             <Button size="lg" variant="secondary" className="px-8">
-              Daftar Gratis Sekarang
+              Mulai Evaluasi Sekarang
             </Button>
           </Link>
         </div>

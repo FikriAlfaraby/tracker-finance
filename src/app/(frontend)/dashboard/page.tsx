@@ -7,15 +7,28 @@ import { Button } from '@/components/ui/button'
 import { ScoreGraph } from '@/components/score-graph'
 import { RecentTransactions } from '@/components/recent-transactions'
 import { ScoreBreakdown } from '@/components/score-breakdown'
-import { GoalsList } from '@/components/goals-list'
-import { TrendingUp, TrendingDown, DollarSign, Target, Plus, BarChart3 } from 'lucide-react'
+import { PocketSummary } from '@/components/pocket-summary'
+import { PocketDistribution } from '@/components/pocket-distribution'
+import {
+  TrendingUp,
+  TrendingDown,
+  Target,
+  Plus,
+  BarChart3,
+  Wallet,
+  ArrowUpDown,
+  AlertCircle,
+} from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export default function Dashboard() {
   const { user, loading } = useAuth()
   const router = useRouter()
+  const [activeTab, setActiveTab] = useState('overview')
 
   useEffect(() => {
     if (!loading && !user) {
@@ -38,7 +51,23 @@ export default function Dashboard() {
     enabled: !!user,
   })
 
-  if (loading || isLoading) {
+  // Fetch pockets data
+  const { data: pocketsData, isLoading: isLoadingPockets } = useQuery({
+    queryKey: ['pockets'],
+    queryFn: async () => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`/api/pockets`, {
+        headers: {
+          Authorization: `JWT ${token}`,
+        },
+      })
+      if (!response.ok) throw new Error('Failed to fetch pockets')
+      return response.json()
+    },
+    enabled: !!user,
+  })
+
+  if (loading || isLoading || isLoadingPockets) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
@@ -50,6 +79,21 @@ export default function Dashboard() {
 
   const netIncome = (dashboardData?.monthlyIncome || 0) - (dashboardData?.monthlyExpenses || 0)
   const hasFinancialData = !!dashboardData?.financialData
+
+  // Filter active pockets
+  const activePockets = pocketsData?.docs?.filter((pocket: any) => pocket.isActive) || []
+  const totalPocketBalance = activePockets.reduce(
+    (sum: number, pocket: any) => sum + (pocket.balance || 0),
+    0,
+  )
+
+  // Check for low balance pockets (less than 10% of target or less than 100k)
+  const lowBalancePockets = activePockets.filter((pocket: any) => {
+    if (pocket.targetAmount && pocket.targetAmount > 0) {
+      return pocket.balance / pocket.targetAmount < 0.1
+    }
+    return pocket.balance < 100000
+  })
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -92,6 +136,47 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Pocket Alert */}
+        {activePockets.length === 0 && (
+          <Alert className="mb-8">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Anda belum memiliki kantong aktif. Kantong membantu Anda mengatur alokasi dana dan
+              mencatat transaksi dengan lebih baik.
+              <div className="mt-2">
+                <Link href="/pockets/new">
+                  <Button size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Buat Kantong
+                  </Button>
+                </Link>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Low Balance Alert */}
+        {lowBalancePockets.length > 0 && (
+          <Alert className="mb-8 bg-yellow-50 border-yellow-300">
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <AlertDescription>
+              <span className="font-medium text-yellow-800">Perhatian:</span>{' '}
+              {lowBalancePockets.length} kantong memiliki saldo rendah.
+              <div className="mt-2">
+                <Link href="/pockets">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-yellow-500 text-yellow-700 hover:bg-yellow-100"
+                  >
+                    Lihat Kantong
+                  </Button>
+                </Link>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
@@ -102,6 +187,19 @@ export default function Dashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{dashboardData?.currentScore || 0}</div>
               <p className="text-xs text-muted-foreground">dari 100 poin maksimal</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Kantong</CardTitle>
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                Rp {totalPocketBalance.toLocaleString('id-ID')}
+              </div>
+              <p className="text-xs text-muted-foreground">{activePockets.length} kantong aktif</p>
             </CardContent>
           </Card>
 
@@ -138,88 +236,184 @@ export default function Dashboard() {
               </p>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Saldo Bersih</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div
-                className={`text-2xl font-bold ${netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}
-              >
-                Rp {netIncome.toLocaleString('id-ID')}
-              </div>
-              <p className="text-xs text-muted-foreground">pemasukan - pengeluaran</p>
-            </CardContent>
-          </Card>
         </div>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Riwayat Skor Keuangan</CardTitle>
-              <CardDescription>Perkembangan skor keuangan dalam 6 bulan terakhir</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScoreGraph data={dashboardData?.scoreHistory || []} />
-            </CardContent>
-          </Card>
+        {/* Tabs */}
+        <Tabs defaultValue="overview" className="mb-8" onValueChange={setActiveTab}>
+          <TabsList className="grid grid-cols-2 mb-4">
+            <TabsTrigger value="overview">Ringkasan</TabsTrigger>
+            <TabsTrigger value="pockets">Kantong</TabsTrigger>
+          </TabsList>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Komponen Skor Keuangan</CardTitle>
-                <CardDescription>Breakdown skor keuangan Anda</CardDescription>
+          {/* Overview Tab */}
+          <TabsContent value="overview">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Riwayat Skor Keuangan</CardTitle>
+                  <CardDescription>
+                    Perkembangan skor keuangan dalam 6 bulan terakhir
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {dashboardData?.scoreHistory && dashboardData.scoreHistory.length > 0 ? (
+                    <ScoreGraph data={dashboardData.scoreHistory} />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-[300px] text-center">
+                      <div className="text-muted-foreground mb-4">
+                        <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>Belum ada data riwayat skor keuangan</p>
+                        <p className="text-sm">
+                          Data akan muncul setelah Anda melakukan evaluasi keuangan dan mencatat
+                          transaksi
+                        </p>
+                      </div>
+                      {!hasFinancialData && (
+                        <Link href="/evaluation">
+                          <Button size="sm">Mulai Evaluasi Keuangan</Button>
+                        </Link>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Komponen Skor Keuangan</CardTitle>
+                    <CardDescription>Breakdown skor keuangan Anda</CardDescription>
+                  </div>
+                  <Link href="/evaluation">
+                    <Button variant="outline" size="sm">
+                      <BarChart3 className="mr-2 h-4 w-4" />
+                      Update Data
+                    </Button>
+                  </Link>
+                </CardHeader>
+                <CardContent>
+                  <ScoreBreakdown scoreComponents={dashboardData?.scoreComponents} />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Recent Transactions */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Transaksi Terbaru</CardTitle>
+                  <CardDescription>5 transaksi terakhir yang Anda catat</CardDescription>
+                </div>
+                <Link href="/transactions">
+                  <Button variant="outline">Lihat Semua</Button>
+                </Link>
+              </CardHeader>
+              <CardContent>
+                <RecentTransactions transactions={dashboardData?.recentTransactions || []} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Pockets Tab */}
+          <TabsContent value="pockets">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+              <div className="lg:col-span-2">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle>Kantong Aktif</CardTitle>
+                      <CardDescription>Ringkasan kantong dan saldo</CardDescription>
+                    </div>
+                    <div className="space-x-2">
+                      <Link href="/pockets/transfer">
+                        <Button variant="outline" size="sm">
+                          <ArrowUpDown className="mr-2 h-4 w-4" />
+                          Transfer
+                        </Button>
+                      </Link>
+                      <Link href="/pockets/new">
+                        <Button size="sm">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Buat Kantong
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <PocketSummary pockets={activePockets} />
+                  </CardContent>
+                </Card>
               </div>
-              <Link href="/evaluation">
-                <Button variant="outline" size="sm">
-                  <BarChart3 className="mr-2 h-4 w-4" />
-                  Update Data
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent>
-              <ScoreBreakdown scoreComponents={dashboardData?.scoreComponents} />
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Financial Goals */}
-        <Card className="mb-8">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Tujuan Keuangan</CardTitle>
-              <CardDescription>Progres tujuan keuangan Anda</CardDescription>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Distribusi Dana</CardTitle>
+                  <CardDescription>Alokasi dana antar kantong</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <PocketDistribution pockets={activePockets} />
+                </CardContent>
+              </Card>
             </div>
-            <Link href="/goals/new">
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Tambah Tujuan
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent>
-            <GoalsList goals={dashboardData?.goals || []} />
-          </CardContent>
-        </Card>
 
-        {/* Recent Transactions */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Transaksi Terbaru</CardTitle>
-              <CardDescription>5 transaksi terakhir yang Anda catat</CardDescription>
-            </div>
-            {/* <Link href="/transactions">
-              <Button variant="outline">Lihat Semua</Button>
-            </Link> */}
-          </CardHeader>
-          <CardContent>
-            <RecentTransactions transactions={dashboardData?.recentTransactions || []} />
-          </CardContent>
-        </Card>
+            {/* Recent Pocket Transactions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Transaksi Kantong Terbaru</CardTitle>
+                <CardDescription>Mutasi terbaru antar kantong</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {dashboardData?.recentPocketTransactions &&
+                dashboardData.recentPocketTransactions.length > 0 ? (
+                  <div className="space-y-4">
+                    {dashboardData.recentPocketTransactions.map((transaction: any) => (
+                      <div
+                        key={transaction.id}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div
+                            className={`w-3 h-3 rounded-full ${transaction.transactionType === 'topup' ? 'bg-green-500' : transaction.transactionType === 'withdraw' ? 'bg-red-500' : 'bg-blue-500'}`}
+                          />
+                          <div>
+                            <div className="font-medium">
+                              {transaction.transactionType === 'transfer'
+                                ? `Transfer: ${transaction.fromPocketName} → ${transaction.toPocketName}`
+                                : transaction.transactionType === 'topup'
+                                  ? `Top Up: ${transaction.toPocketName}`
+                                  : `Withdraw: ${transaction.fromPocketName}`}
+                            </div>
+                            {transaction.description && (
+                              <div className="text-sm text-muted-foreground">
+                                {transaction.description}
+                              </div>
+                            )}
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(transaction.date).toLocaleDateString('id-ID', {
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric',
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold">
+                            Rp {transaction.amount.toLocaleString('id-ID')}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Belum ada transaksi antar kantong
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )

@@ -71,8 +71,8 @@ export interface Config {
     'financial-data': FinancialDatum;
     transactions: Transaction;
     'financial-scores': FinancialScore;
-    'financial-goals': FinancialGoal;
-    'sub-goals': SubGoal;
+    pockets: Pocket;
+    'pocket-transactions': PocketTransaction;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -83,8 +83,8 @@ export interface Config {
     'financial-data': FinancialDataSelect<false> | FinancialDataSelect<true>;
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     'financial-scores': FinancialScoresSelect<false> | FinancialScoresSelect<true>;
-    'financial-goals': FinancialGoalsSelect<false> | FinancialGoalsSelect<true>;
-    'sub-goals': SubGoalsSelect<false> | SubGoalsSelect<true>;
+    pockets: PocketsSelect<false> | PocketsSelect<true>;
+    'pocket-transactions': PocketTransactionsSelect<false> | PocketTransactionsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -182,6 +182,10 @@ export interface Transaction {
   id: string;
   user?: (string | null) | User;
   type: 'income' | 'expense';
+  /**
+   * Kantong sumber dana untuk transaksi ini
+   */
+  sourcePocket: string | Pocket;
   category:
     | 'salary'
     | 'freelance'
@@ -202,91 +206,61 @@ export interface Transaction {
    * Deskripsi transaksi
    */
   description?: string | null;
-  /**
-   * Tujuan keuangan terkait (opsional)
-   */
-  relatedGoal?: (string | null) | FinancialGoal;
-  /**
-   * Kantong/sub-tujuan terkait (opsional)
-   */
-  relatedSubGoal?: (string | null) | SubGoal;
   updatedAt: string;
   createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "financial-goals".
+ * via the `definition` "pockets".
  */
-export interface FinancialGoal {
+export interface Pocket {
   id: string;
   user?: (string | null) | User;
   /**
-   * Nama tujuan keuangan
+   * Nama kantong (contoh: Kantong Utama, Tabungan, Dana Darurat)
    */
   name: string;
   /**
-   * Deskripsi tujuan keuangan
+   * Deskripsi tujuan kantong ini
    */
   description?: string | null;
   /**
-   * Jumlah target yang ingin dicapai
+   * Saldo saat ini dalam kantong
    */
-  targetAmount: number;
+  balance?: number | null;
+  pocketType:
+    | 'main'
+    | 'savings'
+    | 'emergency'
+    | 'investment'
+    | 'shopping'
+    | 'vacation'
+    | 'education'
+    | 'health'
+    | 'other';
   /**
-   * Tanggal target pencapaian (opsional)
+   * Target jumlah untuk kantong ini (opsional)
    */
-  targetDate?: string | null;
-  priority: 'low' | 'medium' | 'high';
+  targetAmount?: number | null;
   /**
-   * Total alokasi saat ini dari semua kantong
+   * Apakah kantong ini aktif
    */
-  currentTotalAllocation?: number | null;
-  /**
-   * Persentase kemajuan (0-100)
-   */
-  progress?: number | null;
-  /**
-   * Tabungan bulanan yang diperlukan untuk mencapai tujuan
-   */
-  requiredMonthlySavings?: number | null;
-  /**
-   * Perkiraan tanggal pencapaian berdasarkan alokasi saat ini
-   */
-  estimatedCompletionDate?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sub-goals".
- */
-export interface SubGoal {
-  id: string;
-  user?: (string | null) | User;
-  /**
-   * Tujuan keuangan utama
-   */
-  goal: string | FinancialGoal;
-  /**
-   * Nama kantong/sub-tujuan
-   */
-  name: string;
-  /**
-   * Deskripsi kantong/sub-tujuan
-   */
-  description?: string | null;
-  /**
-   * Jumlah yang dialokasikan untuk kantong ini
-   */
-  allocatedAmount?: number | null;
-  /**
-   * Jenis aset untuk kantong ini
-   */
-  assetType: 'savings' | 'stocks' | 'mutual_funds' | 'gold' | 'property' | 'crypto' | 'other';
-  /**
-   * Catatan tambahan
-   */
-  notes?: string | null;
+  isActive?: boolean | null;
+  icon?:
+    | (
+        | 'money'
+        | 'bank'
+        | 'emergency'
+        | 'investment'
+        | 'shopping'
+        | 'vacation'
+        | 'education'
+        | 'health'
+        | 'digital'
+        | 'target'
+      )
+    | null;
+  color?: ('green' | 'blue' | 'purple' | 'pink' | 'yellow' | 'red' | 'gray') | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -320,6 +294,39 @@ export interface FinancialScore {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pocket-transactions".
+ */
+export interface PocketTransaction {
+  id: string;
+  user?: (string | null) | User;
+  transactionType: 'transfer';
+  /**
+   * Kantong sumber (untuk transfer dan withdraw)
+   */
+  fromPocket?: (string | null) | Pocket;
+  /**
+   * Kantong tujuan (untuk transfer dan top up)
+   */
+  toPocket?: (string | null) | Pocket;
+  amount: number;
+  /**
+   * Deskripsi transaksi
+   */
+  description?: string | null;
+  date: string;
+  /**
+   * Transaksi utama yang terkait (jika ada)
+   */
+  relatedTransaction?: (string | null) | Transaction;
+  /**
+   * Catatan tambahan
+   */
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
@@ -342,12 +349,12 @@ export interface PayloadLockedDocument {
         value: string | FinancialScore;
       } | null)
     | ({
-        relationTo: 'financial-goals';
-        value: string | FinancialGoal;
+        relationTo: 'pockets';
+        value: string | Pocket;
       } | null)
     | ({
-        relationTo: 'sub-goals';
-        value: string | SubGoal;
+        relationTo: 'pocket-transactions';
+        value: string | PocketTransaction;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -430,12 +437,11 @@ export interface FinancialDataSelect<T extends boolean = true> {
 export interface TransactionsSelect<T extends boolean = true> {
   user?: T;
   type?: T;
+  sourcePocket?: T;
   category?: T;
   amount?: T;
   date?: T;
   description?: T;
-  relatedGoal?: T;
-  relatedSubGoal?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -456,36 +462,37 @@ export interface FinancialScoresSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "financial-goals_select".
+ * via the `definition` "pockets_select".
  */
-export interface FinancialGoalsSelect<T extends boolean = true> {
+export interface PocketsSelect<T extends boolean = true> {
   user?: T;
   name?: T;
   description?: T;
+  balance?: T;
+  pocketType?: T;
   targetAmount?: T;
-  targetDate?: T;
-  priority?: T;
-  currentTotalAllocation?: T;
-  progress?: T;
-  requiredMonthlySavings?: T;
-  estimatedCompletionDate?: T;
+  isActive?: T;
+  icon?: T;
+  color?: T;
   createdAt?: T;
   updatedAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sub-goals_select".
+ * via the `definition` "pocket-transactions_select".
  */
-export interface SubGoalsSelect<T extends boolean = true> {
+export interface PocketTransactionsSelect<T extends boolean = true> {
   user?: T;
-  goal?: T;
-  name?: T;
+  transactionType?: T;
+  fromPocket?: T;
+  toPocket?: T;
+  amount?: T;
   description?: T;
-  allocatedAmount?: T;
-  assetType?: T;
+  date?: T;
+  relatedTransaction?: T;
   notes?: T;
-  createdAt?: T;
   updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

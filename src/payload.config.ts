@@ -11,8 +11,8 @@ import { Users } from './collections/Users'
 import { Transactions } from './collections/Transactions'
 import { FinancialScores } from './collections/FinancialScores'
 import { FinancialData } from './collections/FinancialData'
-import { SubGoals } from './collections/SubGoals'
-import { FinancialGoals } from './collections/FinancialGoals'
+import { Pockets } from './collections/Pockets'
+import { PocketTransactions } from './collections/PocketTransaction'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -24,7 +24,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, FinancialData, Transactions, FinancialScores, FinancialGoals, SubGoals],
+  collections: [Users, FinancialData, Transactions, FinancialScores, Pockets, PocketTransactions],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
@@ -51,38 +51,157 @@ export default buildConfig({
         }
 
         try {
-          /* 1 — Latest financial-data */
+          // Get latest financial data
           const financialDataResult = await payload.find({
             collection: 'financial-data',
-            where: { user: { equals: user.id } },
+            where: {
+              user: {
+                equals: user.id,
+              },
+            },
             sort: '-createdAt',
             limit: 1,
           })
 
-          /* 2 — Last 6 financial scores */
+          // Get financial scores with better error handling
           const scoresResult = await payload.find({
             collection: 'financial-scores',
-            where: { user: { equals: user.id } },
+            where: {
+              user: {
+                equals: user.id,
+              },
+            },
             sort: '-evaluatedAt',
-            limit: 6,
+            limit: 12, // Get more data points
           })
 
-          /* 3 — Last 5 transactions */
+          console.log('Raw scores data:', scoresResult.docs)
+
+          // Format score history data with better date formatting
+          let scoreHistory = []
+          if (scoresResult.docs && scoresResult.docs.length > 0) {
+            scoreHistory = scoresResult.docs
+              .map((score: any) => {
+                const date = new Date(score.evaluatedAt)
+                return {
+                  date: date.toLocaleDateString('id-ID', {
+                    month: 'short',
+                    day: 'numeric',
+                  }),
+                  score: score.score || 0,
+                  fullDate: score.evaluatedAt,
+                }
+              })
+              .reverse() // Show oldest to newest
+          } else {
+            // If no scores exist, create sample data points
+            const now = new Date()
+            for (let i = 5; i >= 0; i--) {
+              const date = new Date(now)
+              date.setMonth(date.getMonth() - i)
+              scoreHistory.push({
+                date: date.toLocaleDateString('id-ID', {
+                  month: 'short',
+                  day: 'numeric',
+                }),
+                score: 0,
+                fullDate: date.toISOString(),
+              })
+            }
+          }
+
+          console.log('Formatted score history:', scoreHistory)
+
+          // Get current score with fallback
+          const currentScore = scoresResult.docs.length > 0 ? scoresResult.docs[0].score : 0
+
+          const scoreComponents =
+            scoresResult.docs.length > 0
+              ? {
+                  debtToIncomeRatio: scoresResult.docs[0].debtToIncomeRatio,
+                  savingsToIncomeRatio: scoresResult.docs[0].savingsToIncomeRatio,
+                  expensesToIncomeRatio: scoresResult.docs[0].expensesToIncomeRatio,
+                  netWorthRatio: scoresResult.docs[0].netWorthRatio,
+                }
+              : null
+
+          // Get recent transactions
           const transactionsResult = await payload.find({
             collection: 'transactions',
-            where: { user: { equals: user.id } },
+            where: {
+              user: {
+                equals: user.id,
+              },
+            },
             sort: '-date',
             limit: 5,
           })
 
-          /* 4 — User goals */
-          const goalsResult = await payload.find({
-            collection: 'financial-goals',
-            where: { user: { equals: user.id } },
-            sort: '-priority',
+          // Get recent pocket transactions
+          const pocketTransactionsResult = await payload.find({
+            collection: 'pocket-transactions',
+            where: {
+              user: {
+                equals: user.id,
+              },
+            },
+            sort: '-date',
+            limit: 5,
           })
 
-          /* 5 — Income vs expense (current month) */
+          // Process pocket transactions to include pocket names
+          const pocketTransactions = await Promise.all(
+            pocketTransactionsResult.docs.map(async (transaction: any) => {
+              let fromPocketName = ''
+              let toPocketName = ''
+
+              if (transaction.fromPocket) {
+                // Handle both object and string ID
+                const fromPocketId =
+                  typeof transaction.fromPocket === 'object'
+                    ? transaction.fromPocket.id
+                    : transaction.fromPocket
+
+                try {
+                  const fromPocket = await payload.findByID({
+                    collection: 'pockets',
+                    id: fromPocketId,
+                  })
+                  fromPocketName = fromPocket?.name || 'Unknown'
+                } catch (error) {
+                  console.error('Error fetching fromPocket:', error)
+                  fromPocketName = 'Unknown'
+                }
+              }
+
+              if (transaction.toPocket) {
+                // Handle both object and string ID
+                const toPocketId =
+                  typeof transaction.toPocket === 'object'
+                    ? transaction.toPocket.id
+                    : transaction.toPocket
+
+                try {
+                  const toPocket = await payload.findByID({
+                    collection: 'pockets',
+                    id: toPocketId,
+                  })
+                  toPocketName = toPocket?.name || 'Unknown'
+                } catch (error) {
+                  console.error('Error fetching toPocket:', error)
+                  toPocketName = 'Unknown'
+                }
+              }
+
+              return {
+                ...transaction,
+                fromPocketName,
+                toPocketName,
+              }
+            }),
+          )
+
+          // Calculate monthly income and expenses
           const now = new Date()
           const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
@@ -90,84 +209,82 @@ export default buildConfig({
             collection: 'transactions',
             where: {
               and: [
-                { user: { equals: user.id } },
-                { date: { greater_than_equal: firstDayOfMonth.toISOString() } },
+                {
+                  user: {
+                    equals: user.id,
+                  },
+                },
+                {
+                  date: {
+                    greater_than_equal: firstDayOfMonth.toISOString(),
+                  },
+                },
               ],
             },
-            pagination: false,
           })
 
           let monthlyIncome = 0
           let monthlyExpenses = 0
-          monthlyTransactions.docs.forEach((t: any) =>
-            t.type === 'income' ? (monthlyIncome += t.amount) : (monthlyExpenses += t.amount),
-          )
 
-          /* 6 — Score helpers */
-          const scoreHistory = scoresResult.docs
-            .map((s: any) => ({
-              date: new Date(s.evaluatedAt).toLocaleDateString('id-ID', {
-                month: 'short',
-                day: 'numeric',
-              }),
-              score: s.score,
-            }))
-            .reverse()
+          monthlyTransactions.docs.forEach((transaction: any) => {
+            if (transaction.type === 'income') {
+              monthlyIncome += transaction.amount
+            } else {
+              monthlyExpenses += transaction.amount
+            }
+          })
 
-          const currentScore = scoresResult.docs[0]?.score ?? 0
-          const scoreComponents = scoresResult.docs[0]
-            ? {
-                debtToIncomeRatio: scoresResult.docs[0].debtToIncomeRatio,
-                savingsToIncomeRatio: scoresResult.docs[0].savingsToIncomeRatio,
-                expensesToIncomeRatio: scoresResult.docs[0].expensesToIncomeRatio,
-                netWorthRatio: scoresResult.docs[0].netWorthRatio,
+          // Get financial data
+          const financialData =
+            financialDataResult.docs.length > 0
+              ? {
+                  monthlyIncome: financialDataResult.docs[0].monthlyIncome,
+                  monthlyExpenses: financialDataResult.docs[0].monthlyExpenses,
+                  totalAssets: financialDataResult.docs[0].totalAssets,
+                  totalLiabilities: financialDataResult.docs[0].totalLiabilities,
+                  netWorth: financialDataResult.docs[0].netWorth,
+                }
+              : null
+
+          // Process transactions to include pocket names
+          const transactions = await Promise.all(
+            transactionsResult.docs.map(async (transaction: any) => {
+              let sourcePocketName = ''
+
+              if (transaction.sourcePocket) {
+                // Handle both object and string ID
+                const sourcePocketId =
+                  typeof transaction.sourcePocket === 'object'
+                    ? transaction.sourcePocket.id
+                    : transaction.sourcePocket
+
+                try {
+                  const sourcePocket = await payload.findByID({
+                    collection: 'pockets',
+                    id: sourcePocketId,
+                  })
+                  sourcePocketName = sourcePocket?.name || 'Unknown'
+                } catch (error) {
+                  console.error('Error fetching sourcePocket:', error)
+                  sourcePocketName = 'Unknown'
+                }
               }
-            : null
-
-          /* 7 — Flatten latest “financial-data” */
-          const financialData = financialDataResult.docs[0]
-            ? {
-                monthlyIncome: financialDataResult.docs[0].monthlyIncome,
-                monthlyExpenses: financialDataResult.docs[0].monthlyExpenses,
-                totalAssets: financialDataResult.docs[0].totalAssets,
-                totalLiabilities: financialDataResult.docs[0].totalLiabilities,
-                netWorth: financialDataResult.docs[0].netWorth,
-              }
-            : null
-
-          /* 8 — Goals ↔ sub-goals */
-          const goals = await Promise.all(
-            goalsResult.docs.map(async (goal: any) => {
-              const subGoalsResult = await payload.find({
-                collection: 'sub-goals',
-                where: { goal: { equals: goal.id } },
-                pagination: false,
-              })
 
               return {
-                id: goal.id,
-                name: goal.name,
-                description: goal.description,
-                targetAmount: goal.targetAmount,
-                targetDate: goal.targetDate,
-                priority: goal.priority,
-                currentTotalAllocation: goal.currentTotalAllocation,
-                progress: goal.progress,
-                requiredMonthlySavings: goal.requiredMonthlySavings,
-                estimatedCompletionDate: goal.estimatedCompletionDate,
-                subGoals: subGoalsResult.docs.map((sg: any) => ({
-                  id: sg.id,
-                  name: sg.name,
-                  description: sg.description,
-                  allocatedAmount: sg.allocatedAmount,
-                  assetType: sg.assetType,
-                  notes: sg.notes,
-                })),
+                id: transaction.id,
+                type: transaction.type,
+                category: transaction.category,
+                amount: transaction.amount,
+                date: transaction.date,
+                description: transaction.description,
+                relatedGoal: transaction.relatedGoal,
+                relatedSubGoal: transaction.relatedSubGoal,
+                sourcePocket: transaction.sourcePocket,
+                sourcePocketName,
               }
             }),
           )
 
-          /* 9 — Final response */
           return Response.json({
             currentScore,
             scoreComponents,
@@ -176,17 +293,8 @@ export default buildConfig({
             monthlyIncome,
             monthlyExpenses,
             totalTransactions: transactionsResult.totalDocs,
-            recentTransactions: transactionsResult.docs.map((t: any) => ({
-              id: t.id,
-              type: t.type,
-              category: t.category,
-              amount: t.amount,
-              date: t.date,
-              description: t.description,
-              relatedGoal: t.relatedGoal,
-              relatedSubGoal: t.relatedSubGoal,
-            })),
-            goals,
+            recentTransactions: transactions,
+            recentPocketTransactions: pocketTransactions,
           })
         } catch (error) {
           console.error('Dashboard error:', error)
